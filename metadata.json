@@ -1,0 +1,6 @@
+{
+  "name": "BetPilot AI",
+  "description": "AI-assisted sports research and ticket-management copilot for football tickets, rollover tracking, and odds calculations.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
