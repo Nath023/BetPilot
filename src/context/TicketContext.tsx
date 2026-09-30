@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Ticket, Selection, ProposedAction } from '../../shared/types/index.ts';
 import { storage } from '../services/storage.ts';
+import { authService, firestoreService } from '../services/firebase.ts';
 import { calculateCombinedOdds, calculatePayout, calculateImpliedProbability } from '../../shared/utils/calculations.ts';
 import { DEMO_TICKETS } from '../../shared/constants/demoData.ts';
 
@@ -113,18 +114,28 @@ export const TicketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     updateActiveTicket({ selections: [...activeTicket.selections, newSel] });
   };
 
-  const saveCurrentTicket = () => {
+  const saveCurrentTicket = async () => {
     if (!activeTicket) return;
     storage.saveTicket(activeTicket);
     setTickets(storage.getTickets());
+
+    const currentUser = authService.getCurrentUser();
+    if (currentUser) {
+      await firestoreService.saveTicket(currentUser.uid, activeTicket);
+    }
   };
 
-  const deleteTicket = (ticketId: string) => {
+  const deleteTicket = async (ticketId: string) => {
     storage.deleteTicket(ticketId);
     const updated = storage.getTickets();
     setTickets(updated);
     if (activeTicket?.id === ticketId) {
       setActiveTicketState(updated[0] || null);
+    }
+
+    const currentUser = authService.getCurrentUser();
+    if (currentUser) {
+      await firestoreService.deleteTicket(currentUser.uid, ticketId);
     }
   };
 
@@ -143,29 +154,45 @@ export const TicketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
-  const confirmPendingAction = () => {
+  const confirmPendingAction = async () => {
     if (!pendingAction) return;
 
-    if (pendingAction.type === 'TRIM_TICKET' && pendingAction.payload) {
+    if (typeof pendingAction.payload === 'function') {
+      try {
+        await pendingAction.payload();
+      } catch (e) {
+        console.error('Failed to execute pending action payload:', e);
+      }
+    } else if (pendingAction.type === 'TRIM_TICKET' && pendingAction.payload) {
       const trimmedTicket = pendingAction.payload as Ticket;
       setActiveTicket(trimmedTicket);
       storage.saveTicket(trimmedTicket);
       setTickets(storage.getTickets());
+      const currentUser = authService.getCurrentUser();
+      if (currentUser) firestoreService.saveTicket(currentUser.uid, trimmedTicket);
     } else if (pendingAction.type === 'SPLIT_TICKET' && pendingAction.payload) {
       const splitTickets = pendingAction.payload as Ticket[];
       splitTickets.forEach((t) => storage.saveTicket(t));
       setTickets(storage.getTickets());
       if (splitTickets[0]) setActiveTicket(splitTickets[0]);
+      const currentUser = authService.getCurrentUser();
+      if (currentUser) {
+        splitTickets.forEach((t) => firestoreService.saveTicket(currentUser.uid, t));
+      }
     } else if (pendingAction.type === 'CONVERT_TICKET' && pendingAction.payload) {
       const convertedTicket = pendingAction.payload as Ticket;
       setActiveTicket(convertedTicket);
       storage.saveTicket(convertedTicket);
       setTickets(storage.getTickets());
+      const currentUser = authService.getCurrentUser();
+      if (currentUser) firestoreService.saveTicket(currentUser.uid, convertedTicket);
     } else if (pendingAction.type === 'CREATE_ALTERNATIVE' && pendingAction.payload) {
       const altTicket = pendingAction.payload as Ticket;
       setActiveTicket(altTicket);
       storage.saveTicket(altTicket);
       setTickets(storage.getTickets());
+      const currentUser = authService.getCurrentUser();
+      if (currentUser) firestoreService.saveTicket(currentUser.uid, altTicket);
     } else if (pendingAction.type === 'DELETE_TICKET' && pendingAction.payload) {
       deleteTicket(pendingAction.payload);
     }

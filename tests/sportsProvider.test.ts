@@ -276,6 +276,51 @@ console.log('\nTEST 9 & 10: Generate Slip and Daily Rollover continue working');
   );
 }
 
+// ----------------------------------------------------
+// TEST 11: TeamAliasResolver normalizes team naming variations
+// ----------------------------------------------------
+console.log('\nTEST 11: TeamAliasResolver normalizes divergent names');
+{
+  const { TeamAliasResolver } = await import('../server/providers/teamAliasResolver.ts');
+  assert(TeamAliasResolver.resolve('Arsenal FC') === 'Arsenal', 'Resolves "Arsenal FC" -> "Arsenal"');
+  assert(TeamAliasResolver.resolve('fc bayern munchen') === 'Bayern Munich', 'Resolves "fc bayern munchen" -> "Bayern Munich"');
+  assert(TeamAliasResolver.resolve('Paris Saint-Germain') === 'PSG', 'Resolves "Paris Saint-Germain" -> "PSG"');
+  assert(TeamAliasResolver.resolve('BVB 09') === 'Borussia Dortmund', 'Resolves "BVB 09" -> "Borussia Dortmund"');
+  assert(TeamAliasResolver.matches('Chelsea FC', 'Chelsea') === true, 'TeamAliasResolver.matches verifies alias equality');
+}
+
+// ----------------------------------------------------
+// TEST 12: SportsDataCache honors TTL caching
+// ----------------------------------------------------
+console.log('\nTEST 12: SportsDataCache in-memory TTL caching');
+{
+  const { SportsDataCache } = await import('../server/providers/sportsDataCache.ts');
+  SportsDataCache.set('test:fixture:1', { match: 'Arsenal vs Chelsea' }, 60);
+  assert(SportsDataCache.has('test:fixture:1'), 'Cache stores and verifies presence');
+  assert(SportsDataCache.get<any>('test:fixture:1')?.match === 'Arsenal vs Chelsea', 'Cache retrieves valid payload');
+
+  SportsDataCache.set('test:expired', { test: true }, -1); // already expired
+  assert(SportsDataCache.get('test:expired') === null, 'Expired TTL returns null and purges');
+}
+
+// ----------------------------------------------------
+// TEST 13: LiveSportsProvider graceful fallback
+// ----------------------------------------------------
+console.log('\nTEST 13: LiveSportsProvider graceful fallback without API key');
+{
+  const { LiveSportsProvider } = await import('../server/providers/liveSportsProvider.ts');
+  const live = new LiveSportsProvider();
+
+  // Without SPORTS_DATA_API_KEY in test environment
+  if (!process.env.SPORTS_DATA_API_KEY) {
+    assert(live.isConfigured() === false, 'Returns isConfigured === false when key absent');
+    assert(live.mode === 'DEMO', 'Mode defaults to DEMO when unconfigured');
+
+    const fixtures = await live.getUpcomingFixtures();
+    assert(fixtures.length >= 8, 'Gracefully falls back to demo benchmark fixtures');
+  }
+}
+
 console.log('\n========================================================');
 console.log(`PROVIDER ARCHITECTURE TESTS: ${passed} PASSED, ${failed} FAILED`);
 console.log('========================================================');

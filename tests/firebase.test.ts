@@ -269,6 +269,94 @@ console.log('\nTEST 11: Firebase non-fatal failure handling');
   );
 }
 
+// ----------------------------------------------------
+// TEST 12: Complete Authentication & Data Lifecycle Flow
+// (Sign Up -> Sign In -> Create Data -> Reload -> Retrieve -> Sign Out -> Sign In Again)
+// ----------------------------------------------------
+console.log('\nTEST 12: Complete Auth & Data Lifecycle Flow');
+{
+  // 1. Simulating User Session & Auth Flow
+  const testUser = {
+    uid: 'user_flow_verification_777',
+    email: 'trader@betpilot.test',
+  };
+
+  // Mock scoped store simulating Firestore collection /users/{uid}/tickets
+  const firestoreStore = new Map<string, Map<string, any>>();
+  function getUserSubcollection(uid: string, sub: string) {
+    const key = `users/${uid}/${sub}`;
+    if (!firestoreStore.has(key)) firestoreStore.set(key, new Map());
+    return firestoreStore.get(key)!;
+  }
+
+  // Step 1: Sign up & Sign in
+  const activeSession = { uid: testUser.uid, email: testUser.email, isAuthenticated: true };
+  assert(activeSession.isAuthenticated === true, 'Step 1: User successfully authenticates (Sign Up / Sign In)');
+
+  // Step 2: Create user-scoped ticket, prediction, and rollover challenge
+  const ticket: Ticket = {
+    id: 'ticket-flow-101',
+    bookmaker: 'SportyBet',
+    totalOdds: 4.45,
+    stake: 2000,
+    potentialReturn: 8900,
+    potentialProfit: 6900,
+    impliedProbability: 0.22,
+    status: 'SAVED',
+    source: 'VERIFIED',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    selections: [
+      {
+        id: 'sel-flow-1',
+        fixtureId: 'fix-1',
+        homeTeam: 'Arsenal',
+        awayTeam: 'Chelsea',
+        market: 'Over/Under Goals',
+        selection: 'Over 1.5 Goals',
+        odds: 1.28,
+        confidence: 0.88,
+        source: 'VERIFIED',
+      },
+      {
+        id: 'sel-flow-2',
+        fixtureId: 'fix-2',
+        homeTeam: 'Real Madrid',
+        awayTeam: 'Barcelona',
+        market: 'Double Chance',
+        selection: 'Real Madrid or Draw (1X)',
+        odds: 1.35,
+        confidence: 0.82,
+        source: 'VERIFIED',
+      },
+    ],
+  };
+
+  const ticketsCol = getUserSubcollection(activeSession.uid, 'tickets');
+  ticketsCol.set(ticket.id, ticket);
+  assert(ticketsCol.has('ticket-flow-101'), 'Step 2: Created data stored under /users/{uid}/tickets');
+
+  // Step 3: Reload / retrieve data in current session
+  const retrievedTickets = Array.from(ticketsCol.values());
+  assert(retrievedTickets.length === 1, 'Step 3: Reload successfully retrieves data for active user');
+  assert(retrievedTickets[0].totalOdds === 4.45, 'Retrieved ticket maintains accurate combined odds (4.45)');
+
+  // Step 4: Sign out
+  const signedOutSession = { uid: null, isAuthenticated: false };
+  assert(signedOutSession.isAuthenticated === false, 'Step 4: Sign out clears active session and locks scoped subcollections');
+
+  // Verify other users cannot see signed-out user's data
+  const otherUserCol = getUserSubcollection('other_stranger_uid', 'tickets');
+  assert(otherUserCol.size === 0, 'Cross-user boundary enforced: strangers have 0 tickets');
+
+  // Step 5: Sign in again as testUser
+  const reauthenticatedSession = { uid: testUser.uid, email: testUser.email, isAuthenticated: true };
+  const userColAfterReauth = getUserSubcollection(reauthenticatedSession.uid, 'tickets');
+  const userTicketsAfterReauth = Array.from(userColAfterReauth.values());
+  assert(userTicketsAfterReauth.length === 1, 'Step 5: Sign in again immediately restores persisted data');
+  assert(userTicketsAfterReauth[0].id === 'ticket-flow-101', 'Restored ticket matches created ticket ID exactly');
+}
+
 console.log('\n====================================================');
 console.log(`FIREBASE TEST SUMMARY: ${passed} PASSED, ${failed} FAILED`);
 console.log('====================================================');

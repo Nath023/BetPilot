@@ -26,6 +26,7 @@ import {
   DailyRolloverDay,
   PredictionSnapshot,
 } from '../../shared/types/index.ts';
+import appletConfig from '../../firebase-applet-config.json';
 
 export interface FirebaseConfig {
   apiKey?: string;
@@ -34,17 +35,21 @@ export interface FirebaseConfig {
   storageBucket?: string;
   messagingSenderId?: string;
   appId?: string;
+  firestoreDatabaseId?: string;
 }
 
-// Read configuration from Vite environment variables
+// Read configuration from firebase-applet-config.json first, then fallback to Vite environment variables
 export const getEnvFirebaseConfig = (): FirebaseConfig => {
+  const jsonCfg = (appletConfig as any) || {};
+
   return {
-    apiKey: typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_FIREBASE_API_KEY : undefined,
-    authDomain: typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_FIREBASE_AUTH_DOMAIN : undefined,
-    projectId: typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_FIREBASE_PROJECT_ID : undefined,
-    storageBucket: typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_FIREBASE_STORAGE_BUCKET : undefined,
-    messagingSenderId: typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID : undefined,
-    appId: typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_FIREBASE_APP_ID : undefined,
+    apiKey: jsonCfg.apiKey || (typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_FIREBASE_API_KEY : undefined),
+    authDomain: jsonCfg.authDomain || (typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_FIREBASE_AUTH_DOMAIN : undefined),
+    projectId: jsonCfg.projectId || (typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_FIREBASE_PROJECT_ID : undefined),
+    storageBucket: jsonCfg.storageBucket || (typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_FIREBASE_STORAGE_BUCKET : undefined),
+    messagingSenderId: jsonCfg.messagingSenderId || (typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID : undefined),
+    appId: jsonCfg.appId || (typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_FIREBASE_APP_ID : undefined),
+    firestoreDatabaseId: jsonCfg.firestoreDatabaseId,
   };
 };
 
@@ -64,7 +69,7 @@ export const initFirebase = (customConfig?: FirebaseConfig): { isReady: boolean;
   try {
     app = getApps().length === 0 ? initializeApp(config as Record<string, string>) : getApps()[0];
     auth = getAuth(app);
-    db = getFirestore(app);
+    db = config.firestoreDatabaseId ? getFirestore(app, config.firestoreDatabaseId) : getFirestore(app);
     initError = null;
     return { isReady: true, error: null };
   } catch (err: any) {

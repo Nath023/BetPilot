@@ -253,6 +253,23 @@ console.log('\nTEST 11: Deterministic combined-odds calculation verification');
   });
 }
 
+// ----------------------------------------------------
+// TEST 12: Bookmaker overround and margin calculation
+// ----------------------------------------------------
+console.log('\nTEST 12: Bookmaker overround and margin calculation');
+{
+  const { calculateMarketOverround } = await import('../shared/utils/calculations.ts');
+  // Two-way market: 1.90 vs 1.90 -> 1/1.9 + 1/1.9 = 52.6% + 52.6% = 105.3% -> Margin 5.3%
+  const twoWay = calculateMarketOverround([1.90, 1.90]);
+  assert(twoWay.marginPercent >= 5.0 && twoWay.marginPercent <= 5.5, 'Calculates 2-way market margin (~5.3%)');
+  assert(twoWay.isFairOrValue === false, 'Detects standard retail bookmaker margin');
+
+  // Low margin/fair market: 2.02 vs 2.02 -> 1/2.02 + 1/2.02 = 99% -> Margin ~0%
+  const fairMarket = calculateMarketOverround([2.02, 2.02]);
+  assert(fairMarket.marginPercent <= 1.0, 'Calculates sharp/fair market low margin');
+  assert(fairMarket.isFairOrValue === true, 'Flags low-margin market as fair/value');
+}
+
 console.log('\n====================================================');
 console.log(`TEST SUMMARY: ${passedCount} PASSED, ${failedCount} FAILED`);
 console.log('====================================================');

@@ -1,4 +1,4 @@
-import { ResearchResult, NormalizedFixtureResearch } from '../../shared/types/index.ts';
+import { NormalizedFixtureResearch } from '../../shared/types/index.ts';
 import { ProviderRegistry } from './providerRegistry.ts';
 
 /**
@@ -14,17 +14,58 @@ export class SportsDataProvider {
     return ProviderRegistry.getStatus();
   }
 
-  public static async searchFixtures(query: string): Promise<NormalizedFixtureResearch[]> {
+  public static async searchFixtures(query: string): Promise<any[]> {
     const q = (query || '').toLowerCase().trim();
     const provider = ProviderRegistry.getSportsProvider();
     const all = await provider.getAllFixtureResearch();
-    if (!q) return all;
+    const filtered = !q
+      ? all
+      : all.filter(
+          (f) =>
+            f.fixture.homeTeam.name.toLowerCase().includes(q) ||
+            f.fixture.awayTeam.name.toLowerCase().includes(q) ||
+            f.fixture.competition.name.toLowerCase().includes(q)
+        );
 
-    return all.filter((f) =>
-      f.fixture.homeTeam.name.toLowerCase().includes(q) ||
-      f.fixture.awayTeam.name.toLowerCase().includes(q) ||
-      f.fixture.competition.name.toLowerCase().includes(q)
-    );
+    // Format with top-level convenience properties for backwards UI compatibility
+    return filtered.map((item) => ({
+      ...item,
+      fixtureId: item.fixture.id,
+      homeTeam: item.fixture.homeTeam.name,
+      awayTeam: item.fixture.awayTeam.name,
+      competition: item.fixture.competition.name,
+      kickoffTime: item.fixture.kickoffTime,
+      homeForm: Array.isArray(item.homeStats.formLast5) ? item.homeStats.formLast5 : ['W', 'D', 'W', 'W', 'D'],
+      awayForm: Array.isArray(item.awayStats.formLast5) ? item.awayStats.formLast5 : ['D', 'W', 'L', 'W', 'D'],
+      headToHead: item.h2h,
+      statistics: [
+        {
+          label: 'Avg Goals Scored / Match',
+          homeValue: String(item.homeStats.averageGoalsScored),
+          awayValue: String(item.awayStats.averageGoalsScored),
+        },
+        {
+          label: 'Avg Goals Conceded',
+          homeValue: String(item.homeStats.averageGoalsConceded),
+          awayValue: String(item.awayStats.averageGoalsConceded),
+        },
+        {
+          label: 'Clean Sheets (Last 10)',
+          homeValue: String(item.homeStats.cleanSheetCount),
+          awayValue: String(item.awayStats.cleanSheetCount),
+        },
+        {
+          label: 'Both Teams Scored %',
+          homeValue: `${Math.round(Number(item.homeStats.bttsFrequency || 0.5) * 100)}%`,
+          awayValue: `${Math.round(Number(item.awayStats.bttsFrequency || 0.5) * 100)}%`,
+        },
+        {
+          label: 'Over 1.5 Goals Rate',
+          homeValue: `${Math.round(Number(item.homeStats.over15Frequency || 0.8) * 100)}%`,
+          awayValue: `${Math.round(Number(item.awayStats.over15Frequency || 0.8) * 100)}%`,
+        },
+      ],
+    }));
   }
 
   public static async getFixtureResearch(

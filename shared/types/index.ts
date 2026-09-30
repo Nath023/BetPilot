@@ -230,6 +230,7 @@ export interface ResearchResult {
     player: string;
     status: string;
   }[];
+  marketOdds?: NormalizedMarketOdds[];
   observations: string[];
   limitations: string[];
   retrievedAt: string;

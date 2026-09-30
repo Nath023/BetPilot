@@ -2,11 +2,20 @@ import React from 'react';
 import { VerificationStatus } from '../../../shared/types/index.ts';
 import { ShieldCheck, User, Calculator, Sparkles, AlertCircle, Database } from 'lucide-react';
 
-export const DataSourceBadge: React.FC<{ status: VerificationStatus; className?: string }> = ({
+export const DataSourceBadge: React.FC<{ status: VerificationStatus | 'DEMO'; className?: string }> = ({
   status,
   className = '',
 }) => {
   switch (status) {
+    case 'DEMO':
+      return (
+        <span
+          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-amber-950/70 text-amber-400 border border-amber-800/60 ${className}`}
+        >
+          <Database className="w-3 h-3" />
+          Demo Benchmark Data
+        </span>
+      );
     case 'VERIFIED':
       return (
         <span

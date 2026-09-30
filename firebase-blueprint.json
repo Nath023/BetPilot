@@ -1,0 +1,96 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile with preference settings and timestamp",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "createdAt"]
+    },
+    "Ticket": {
+      "title": "Ticket",
+      "description": "User saved accumulator ticket with selections and deterministic math metrics",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "combinedOdds": { "type": "number" },
+        "stake": { "type": "number" },
+        "potentialReturn": { "type": "number" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "combinedOdds"]
+    },
+    "Prediction": {
+      "title": "Prediction",
+      "description": "Statistical prediction snapshot for model calibration",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "fixtureId": { "type": "string" },
+        "modelEstimatedProbability": { "type": "number" },
+        "confidence": { "type": "string" },
+        "dataQuality": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "fixtureId", "modelEstimatedProbability"]
+    },
+    "RolloverChallenge": {
+      "title": "RolloverChallenge",
+      "description": "User daily rollover challenge progression state",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "initialBankroll": { "type": "number" },
+        "currentBankroll": { "type": "number" },
+        "currentDay": { "type": "number" },
+        "targetDays": { "type": "number" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "currentBankroll"]
+    },
+    "RolloverDay": {
+      "title": "RolloverDay",
+      "description": "Day-level rollover entry in challenge",
+      "type": "object",
+      "properties": {
+        "dayNumber": { "type": "number" },
+        "stake": { "type": "number" },
+        "status": { "type": "string" },
+        "payout": { "type": "number" }
+      },
+      "required": ["dayNumber", "stake", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile collection isolated per authenticated user"
+    },
+    "/users/{userId}/tickets/{ticketId}": {
+      "schema": "Ticket",
+      "description": "User tickets sub-collection isolated to owner"
+    },
+    "/users/{userId}/predictions/{predictionId}": {
+      "schema": "Prediction",
+      "description": "User prediction history sub-collection isolated to owner"
+    },
+    "/users/{userId}/rollovers/{challengeId}": {
+      "schema": "RolloverChallenge",
+      "description": "User rollover challenges isolated to owner"
+    },
+    "/users/{userId}/rollovers/{challengeId}/days/{dayNumber}": {
+      "schema": "RolloverDay",
+      "description": "Day progression logs for a rollover challenge"
+    }
+  }
+}

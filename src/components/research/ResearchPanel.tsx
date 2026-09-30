@@ -268,6 +268,62 @@ export const ResearchPanel: React.FC = () => {
             </div>
           </div>
 
+          {/* Market Odds & House Commission Inspection */}
+          {selectedFixture.marketOdds && selectedFixture.marketOdds.length > 0 && (
+            <div className="p-5 rounded-2xl bg-[#121A2B] border border-[#1E2D4A] space-y-3 shadow-lg">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#1E2D4A] pb-3">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-emerald-400" />
+                  <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+                    Available Market Odds & Implied Probabilities
+                  </h3>
+                </div>
+                <span className="text-[11px] text-slate-400">
+                  Click any selection to populate EV Calculator below
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {selectedFixture.marketOdds.map((odd, idx) => {
+                  const implied = calculateImpliedProbability(odd.odds);
+                  const isSelected = testOdds === String(odd.odds);
+                  return (
+                    <div
+                      key={idx}
+                      onClick={() => setTestOdds(String(odd.odds))}
+                      className={`p-3 rounded-xl border transition-all cursor-pointer ${
+                        isSelected
+                          ? 'bg-blue-950/40 border-blue-500 shadow-xs'
+                          : 'bg-[#0B1020] border-[#1E2D4A] hover:border-slate-600'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2 mb-1.5">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                          {odd.market}
+                        </span>
+                        <span className="text-[10px] text-slate-500 font-mono">
+                          {odd.bookmaker}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-white truncate max-w-[160px]">
+                          {odd.selection}
+                        </span>
+                        <span className="text-sm font-black text-emerald-400 font-mono">
+                          {odd.odds.toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="mt-2 pt-2 border-t border-[#1E2D4A]/60 flex items-center justify-between text-[11px] text-slate-400">
+                        <span>Implied: {(implied * 100).toFixed(1)}%</span>
+                        <span className="text-blue-400 hover:underline">Select for EV →</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Interactive EV & Implied Probability Calculator Card */}
           <div className="p-5 rounded-2xl bg-[#121A2B] border border-[#1E2D4A] space-y-4 shadow-lg">
             <div className="flex items-center gap-2">

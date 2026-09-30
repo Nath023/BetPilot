@@ -126,6 +126,31 @@ export function calculateRolloverProgress(
 }
 
 /**
+ * Calculates market overround (bookmaker margin percentage) from a set of mutually exclusive outcomes.
+ * Overround % = (Sum(1 / odds_i) - 1) * 100
+ * e.g. 1X2 market: Home @ 2.0 (50%), Draw @ 3.4 (29.4%), Away @ 3.8 (26.3%) => sum = 105.7% => overround = 5.7%
+ */
+export function calculateMarketOverround(marketOdds: number[]): {
+  totalImpliedPercent: number;
+  marginPercent: number;
+  isFairOrValue: boolean;
+} {
+  if (!marketOdds || marketOdds.length === 0) {
+    return { totalImpliedPercent: 100, marginPercent: 0, isFairOrValue: true };
+  }
+  const sum = marketOdds.reduce((acc, odd) => {
+    return acc + (odd > 1 ? 1 / odd : 0);
+  }, 0);
+  const totalImpliedPercent = Math.round(sum * 1000) / 10;
+  const marginPercent = Math.round((sum - 1) * 1000) / 10;
+  return {
+    totalImpliedPercent,
+    marginPercent: Math.max(0, marginPercent),
+    isFairOrValue: marginPercent <= 3.0,
+  };
+}
+
+/**
  * Generates combinations for ticket splitting (e.g. singles, doubles, trebles)
  */
 export function generateCombinations<T>(items: T[], k: number): T[][] {
