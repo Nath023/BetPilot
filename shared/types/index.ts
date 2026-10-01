@@ -23,7 +23,10 @@ export type TicketStatus =
   | 'ALTERNATIVE'
   | 'TRIMMED'
   | 'SPLIT'
-  | 'ARCHIVED';
+  | 'ARCHIVED'
+  | 'WON'
+  | 'LOST'
+  | 'VOID';
 
 export type Currency = 'NGN' | 'USD' | 'GBP' | 'EUR';
 
@@ -57,6 +60,9 @@ export interface Selection {
   confidence: number; // 0.0 to 1.0
   source: VerificationStatus;
   status?: 'PENDING' | 'WON' | 'LOST' | 'VOID';
+  settledAt?: string;
+  resultScore?: { home: number; away: number };
+  resultDetails?: string;
   uncertainFields?: string[];
   notes?: string;
 }
@@ -80,6 +86,11 @@ export interface Ticket {
   createdAt: string;
   updatedAt: string;
   notes?: string;
+  settlementStatus?: 'PENDING' | 'WON' | 'LOST' | 'VOID';
+  settledAt?: string;
+  settledOdds?: number;
+  actualReturn?: number;
+  settlementSource?: string;
 }
 
 export interface TicketCalculation {
@@ -132,6 +143,25 @@ export interface NormalizedFixture {
     name: string;
     city: string;
   };
+}
+
+export type MatchResultStatus = 'FINISHED' | 'POSTPONED' | 'CANCELLED' | 'ABANDONED' | 'LIVE' | 'SCHEDULED';
+
+export interface NormalizedMatchResult {
+  fixtureId: string;
+  externalId?: string;
+  homeTeam: string;
+  awayTeam: string;
+  competition?: string;
+  status: MatchResultStatus;
+  score: {
+    home: number | null;
+    away: number | null;
+    htHome?: number | null;
+    htAway?: number | null;
+  };
+  finishedAt?: string;
+  provider: string;
 }
 
 export interface NormalizedTeamStats {
@@ -474,4 +504,6 @@ export interface UrlAnalysisResult {
   retrievedAt: string;
   limitations: string[];
 }
+
+export * from './calibration.ts';
 

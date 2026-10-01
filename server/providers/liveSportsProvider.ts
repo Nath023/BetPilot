@@ -8,6 +8,8 @@ import {
   NormalizedMarketOdds,
   NormalizedTeamStats,
   NormalizedH2H,
+  NormalizedMatchResult,
+  MatchResultStatus,
   ProviderMode,
 } from '../../shared/types/index.ts';
 import { SportsDataCache } from './sportsDataCache.ts';
@@ -17,9 +19,8 @@ import { DemoMarketOddsProvider } from './demoOddsProvider.ts';
 
 /**
  * LiveSportsProvider: Production adapter for live sports-data and prematch betting lines.
- * Implements ISportsDataProvider and IMarketOddsProvider.
- * Wraps external REST feeds with in-memory TTL caching, team alias resolution,
- * and automatic fallback to DEMO mode if unconfigured.
+ * Implements ISportsDataProvider and IMarketOddsProvider with native support for
+ * Football-Data.org v4 REST endpoints and API-Sports feeds.
  */
 export class LiveSportsProvider implements ISportsDataProvider, IMarketOddsProvider {
   public readonly providerName = 'Live Sports API Provider';
@@ -31,15 +32,89 @@ export class LiveSportsProvider implements ISportsDataProvider, IMarketOddsProvi
   }
 
   public isConfigured(): boolean {
-    return Boolean(process.env.SPORTS_DATA_API_KEY && process.env.SPORTS_DATA_API_KEY.trim() !== '');
+    return Boolean(
+      (process.env.SPORTS_DATA_API_KEY && process.env.SPORTS_DATA_API_KEY.trim() !== '') ||
+      (process.env.FOOTBALL_DATA_API_KEY && process.env.FOOTBALL_DATA_API_KEY.trim() !== '')
+    );
   }
 
   private get apiKey(): string {
-    return process.env.SPORTS_DATA_API_KEY || '';
+    return process.env.FOOTBALL_DATA_API_KEY || process.env.SPORTS_DATA_API_KEY || '';
   }
 
   private get apiHost(): string {
     return process.env.SPORTS_DATA_API_HOST || 'v3.football.api-sports.io';
+  }
+
+  /**
+   * Adapts Football-Data.org raw match response to normalized BetPilot MatchResult
+   */
+  public static adaptFootballDataMatch(raw: any): NormalizedMatchResult {
+    const homeName = TeamAliasResolver.resolve(raw.homeTeam?.name || raw.homeTeam?.shortName || 'Home Team');
+    const awayName = TeamAliasResolver.resolve(raw.awayTeam?.name || raw.awayTeam?.shortName || 'Away Team');
+
+    let status: MatchResultStatus = 'SCHEDULED';
+    if (raw.status === 'FINISHED' || raw.status === 'AWARDED') {
+      status = 'FINISHED';
+    } else if (raw.status === 'IN_PLAY' || raw.status === 'PAUSED') {
+      status = 'LIVE';
+    } else if (raw.status === 'POSTPONED') {
+      status = 'POSTPONED';
+    } else if (raw.status === 'CANCELLED') {
+      status = 'CANCELLED';
+    } else if (raw.status === 'SUSPENDED') {
+      status = 'ABANDONED';
+    }
+
+    const ftHome = raw.score?.fullTime?.home ?? raw.score?.regularTime?.home ?? null;
+    const ftAway = raw.score?.fullTime?.away ?? raw.score?.regularTime?.away ?? null;
+
+    return {
+      fixtureId: `fd-${raw.id}`,
+      externalId: String(raw.id),
+      homeTeam: homeName,
+      awayTeam: awayName,
+      competition: raw.competition?.name || 'Premier League',
+      status,
+      score: {
+        home: ftHome,
+        away: ftAway,
+        htHome: raw.score?.halfTime?.home ?? null,
+        htAway: raw.score?.halfTime?.away ?? null,
+      },
+      finishedAt: raw.utcDate,
+      provider: 'Football-Data.org (Live Provider)',
+    };
+  }
+
+  /**
+   * Fetches real matches directly from Football-Data.org v4 API
+   */
+  public async fetchFootballDataMatches(
+    competitionCode: string = 'PL',
+    dateFrom?: string,
+    dateTo?: string
+  ): Promise<NormalizedMatchResult[]> {
+    const key = process.env.FOOTBALL_DATA_API_KEY || process.env.SPORTS_DATA_API_KEY;
+    const dateParam = dateFrom && dateTo ? `?dateFrom=${dateFrom}&dateTo=${dateTo}` : '';
+    const url = `https://api.football-data.org/v4/competitions/${competitionCode}/matches${dateParam}`;
+
+    try {
+      const headers: Record<string, string> = { 'Accept': 'application/json' };
+      if (key) {
+        headers['X-Auth-Token'] = key;
+      }
+      const res = await fetch(url, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.matches && Array.isArray(data.matches)) {
+          return data.matches.map((m: any) => LiveSportsProvider.adaptFootballDataMatch(m));
+        }
+      }
+    } catch (e) {
+      console.warn('[LiveSportsProvider] Football-Data.org query notice:', e);
+    }
+    return [];
   }
 
   /**

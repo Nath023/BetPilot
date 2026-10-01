@@ -1,5 +1,5 @@
 import React from 'react';
-import { MessageSquare, Ticket, Percent, Sparkles, Settings } from 'lucide-react';
+import { MessageSquare, Ticket, Percent, Sparkles, Settings, BarChart3 } from 'lucide-react';
 
 interface MobileNavProps {
   activeTab: string;
@@ -9,9 +9,10 @@ interface MobileNavProps {
 export const MobileNav: React.FC<MobileNavProps> = ({ activeTab, setActiveTab }) => {
   const tabs = [
     { id: 'chat', label: 'Chat', icon: MessageSquare },
-    { id: 'predictions', label: 'Predictions', icon: Sparkles },
-    { id: 'daily_rollover', label: 'Rollover', icon: Percent },
     { id: 'tickets', label: 'Tickets', icon: Ticket },
+    { id: 'calibration', label: 'Metrics', icon: BarChart3 },
+    { id: 'predictions', label: 'Picks', icon: Sparkles },
+    { id: 'daily_rollover', label: 'Rollover', icon: Percent },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
 

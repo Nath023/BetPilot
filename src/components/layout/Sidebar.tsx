@@ -8,6 +8,7 @@ import {
   Settings,
   PlusCircle,
   Sparkles,
+  BarChart3,
 } from 'lucide-react';
 import { useTicket } from '../../context/TicketContext.tsx';
 
@@ -22,6 +23,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
   const navItems = [
     { id: 'chat', label: 'AI Copilot', icon: MessageSquare, badge: 'Live' },
     { id: 'tickets', label: 'Ticket Workspace', icon: Ticket },
+    { id: 'calibration', label: 'Model Accuracy & ROI', icon: BarChart3, badge: 'Stats' },
     { id: 'predictions', label: 'Predictions Engine', icon: Sparkles, badge: 'New' },
     { id: 'daily_rollover', label: "Today's Rollover", icon: Percent, badge: '4-5 Odds' },
     { id: 'rollover_history', label: 'Rollover History', icon: History },

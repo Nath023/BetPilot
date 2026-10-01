@@ -134,4 +134,36 @@ export const api = {
     const res = await fetch('/api/prediction/history');
     return res.json();
   },
+
+  async settleTicket(ticket: any, customResults?: any[]) {
+    const res = await fetch('/api/settlement/ticket', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ticket, customResults }),
+    });
+    return res.json();
+  },
+
+  async settleBatchTickets(tickets: any[], customResults?: any[]) {
+    const res = await fetch('/api/settlement/batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tickets, customResults }),
+    });
+    return res.json();
+  },
+
+  async settleRollover(challenge: any, ticket: any, dayNumber?: number) {
+    const res = await fetch('/api/settlement/rollover', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ challenge, ticket, dayNumber }),
+    });
+    return res.json();
+  },
+
+  async getVerifiedResults() {
+    const res = await fetch('/api/settlement/results');
+    return res.json();
+  },
 };

@@ -3,6 +3,7 @@ import { api } from '../../services/api.ts';
 import { CandidateSlip, DailyRolloverChallenge, CandidateSelection } from '../../../shared/types/index.ts';
 import { useAuth } from '../../context/AuthContext.tsx';
 import { useTicket } from '../../context/TicketContext.tsx';
+import { authService, firestoreService } from '../../services/firebase.ts';
 import {
   Calendar,
   Sparkles,
@@ -16,6 +17,7 @@ import {
   ShieldCheck,
   Check,
   Edit3,
+  RefreshCw,
 } from 'lucide-react';
 
 export const DailyRolloverView: React.FC = () => {
@@ -138,6 +140,61 @@ export const DailyRolloverView: React.FC = () => {
     loadChallenge();
   };
 
+  const [isSettlingRollover, setIsSettlingRollover] = useState(false);
+  const handleAutomatedRolloverSettlement = async () => {
+    if (!challenge) return;
+    if (!selectedSlip) {
+      setSafetyNotice('Please select or generate a candidate slip first to verify and settle today\'s rollover.');
+      return;
+    }
+
+    setIsSettlingRollover(true);
+    setSafetyNotice('Connecting to sports data feeds to verify final match outcomes...');
+    try {
+      const rolloverTicket: any = {
+        id: `rollover-day-${challenge.currentDay}-${Date.now()}`,
+        bookmaker: 'SportyBet',
+        status: 'SAVED',
+        totalOdds: selectedSlip.combinedOdds,
+        stake: parseFloat(builderStake) || challenge.currentBankroll,
+        potentialReturn: Math.round((parseFloat(builderStake) || challenge.currentBankroll) * selectedSlip.combinedOdds),
+        potentialProfit: Math.round((parseFloat(builderStake) || challenge.currentBankroll) * selectedSlip.combinedOdds) - (parseFloat(builderStake) || challenge.currentBankroll),
+        impliedProbability: selectedSlip.impliedProbability,
+        source: 'VERIFIED',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        selections: selectedSlip.selections.map((s, idx) => ({
+          id: s.id || `sel-${idx}`,
+          fixtureId: s.fixtureId,
+          homeTeam: s.homeTeam,
+          awayTeam: s.awayTeam,
+          competition: s.competition,
+          market: s.market,
+          selection: s.selection,
+          odds: s.bookmakerOdds,
+          confidence: s.confidence === 'HIGH' ? 0.9 : 0.75,
+          source: 'VERIFIED',
+        })),
+      };
+
+      const res = await api.settleRollover(challenge, rolloverTicket, challenge.currentDay);
+      if (res.success && res.challenge) {
+        setChallenge(res.challenge);
+        setSafetyNotice(res.message);
+        const currentUser = authService.getCurrentUser();
+        if (currentUser) {
+          await firestoreService.saveRolloverChallenge(currentUser.uid, res.challenge);
+        }
+      } else {
+        setSafetyNotice(res.error || 'Failed to settle rollover day.');
+      }
+    } catch (e: any) {
+      setSafetyNotice(e.message || 'Settlement error');
+    } finally {
+      setIsSettlingRollover(false);
+    }
+  };
+
   const stakeNum = parseFloat(builderStake) || 10000;
   const potentialPayout = selectedSlip ? Math.round(stakeNum * selectedSlip.combinedOdds) : 0;
   const potentialProfit = potentialPayout - stakeNum;
@@ -162,10 +219,24 @@ export const DailyRolloverView: React.FC = () => {
 
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setRecordModalOpen(true)}
-                className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-xs cursor-pointer"
+                onClick={handleAutomatedRolloverSettlement}
+                disabled={isSettlingRollover}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-semibold shadow-xs cursor-pointer"
+                title="Verify match results via sports providers and settle Day automatically"
               >
-                Record Day {challenge.currentDay} Outcome
+                {isSettlingRollover ? (
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                )}
+                <span>{isSettlingRollover ? 'Verifying...' : `Verify & Settle Day ${challenge.currentDay}`}</span>
+              </button>
+
+              <button
+                onClick={() => setRecordModalOpen(true)}
+                className="px-3 py-1.5 rounded-lg bg-[#18233A] hover:bg-[#1E2D4A] text-slate-300 text-xs font-semibold border border-[#1E2D4A] cursor-pointer"
+              >
+                Manual Override
               </button>
             </div>
           </div>

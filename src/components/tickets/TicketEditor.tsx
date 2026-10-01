@@ -18,6 +18,8 @@ import {
   AlertTriangle,
   ArrowRight,
   Calculator,
+  ShieldCheck,
+  RefreshCw,
 } from 'lucide-react';
 
 export const TicketEditor: React.FC = () => {
@@ -42,6 +44,28 @@ export const TicketEditor: React.FC = () => {
   const [targetBookmaker, setTargetBookmaker] = useState('bet9ja');
   const [copied, setCopied] = useState(false);
   const [statusNotice, setStatusNotice] = useState<string | null>(null);
+  const [isSettling, setIsSettling] = useState(false);
+
+  const handleSettleTicket = async () => {
+    if (!activeTicket) return;
+    setIsSettling(true);
+    setStatusNotice('Contacting sports providers to verify final scores...');
+    try {
+      const res = await api.settleTicket(activeTicket);
+      if (res.success && res.ticket) {
+        updateActiveTicket(res.ticket);
+        await saveCurrentTicket();
+        setStatusNotice(res.summaryMessage || 'Ticket settlement updated.');
+      } else {
+        setStatusNotice(res.error || 'Failed to settle ticket.');
+      }
+    } catch (e: any) {
+      setStatusNotice(e.message || 'Settlement error');
+    } finally {
+      setIsSettling(false);
+      setTimeout(() => setStatusNotice(null), 5000);
+    }
+  };
 
   if (!activeTicket) {
     return (
@@ -223,11 +247,29 @@ export const TicketEditor: React.FC = () => {
         </div>
       </div>
 
-      {/* Action Toolbar (Trim, Split, Convert) */}
+      {/* Action Toolbar (Trim, Split, Convert, Settle) */}
       <div className="p-4 rounded-xl bg-[#121A2B] border border-[#1E2D4A] flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs font-bold uppercase tracking-wider text-slate-400 mr-1">
-            Transformations:
+            Verification:
+          </span>
+
+          <button
+            onClick={handleSettleTicket}
+            disabled={isSettling}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+            title="Ingest verified match scores and settle ticket"
+          >
+            {isSettling ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <ShieldCheck className="w-3.5 h-3.5" />
+            )}
+            <span>{isSettling ? 'Verifying...' : 'Verify & Settle Results'}</span>
+          </button>
+
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-400 ml-2 mr-1">
+            Tools:
           </span>
 
           <button
@@ -283,6 +325,58 @@ export const TicketEditor: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Ticket Settlement Banner */}
+      {activeTicket.settlementStatus && (
+        <div
+          className={`p-4 rounded-xl border flex items-center justify-between gap-4 ${
+            activeTicket.settlementStatus === 'WON'
+              ? 'bg-emerald-950/40 border-emerald-800 text-emerald-200'
+              : activeTicket.settlementStatus === 'LOST'
+              ? 'bg-rose-950/40 border-rose-800 text-rose-200'
+              : activeTicket.settlementStatus === 'VOID'
+              ? 'bg-amber-950/40 border-amber-800 text-amber-200'
+              : 'bg-blue-950/40 border-blue-800 text-blue-200'
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <span
+              className={`px-2.5 py-1 rounded text-xs font-black tracking-wide uppercase border ${
+                activeTicket.settlementStatus === 'WON'
+                  ? 'bg-emerald-900 border-emerald-700 text-emerald-300'
+                  : activeTicket.settlementStatus === 'LOST'
+                  ? 'bg-rose-900 border-rose-700 text-rose-300'
+                  : activeTicket.settlementStatus === 'VOID'
+                  ? 'bg-amber-900 border-amber-700 text-amber-300'
+                  : 'bg-blue-900 border-blue-700 text-blue-300'
+              }`}
+            >
+              {activeTicket.settlementStatus}
+            </span>
+            <div className="text-xs">
+              <span className="font-bold">
+                {activeTicket.settlementStatus === 'WON'
+                  ? `Accumulator Succeeded! Final payout: ${formatMoney(activeTicket.actualReturn || activeTicket.potentialReturn)}`
+                  : activeTicket.settlementStatus === 'LOST'
+                  ? 'Accumulator Missed (one or more selections lost)'
+                  : activeTicket.settlementStatus === 'VOID'
+                  ? `All matches voided. Full stake refunded: ${formatMoney(activeTicket.actualReturn || activeTicket.stake)}`
+                  : 'Settlement in progress across sports data feeds'}
+              </span>
+              {activeTicket.settledOdds && activeTicket.settlementStatus === 'WON' && (
+                <span className="block text-[11px] opacity-80">
+                  Settled Combined Odds: {activeTicket.settledOdds.toFixed(2)}x
+                </span>
+              )}
+            </div>
+          </div>
+          {activeTicket.settledAt && (
+            <span className="text-[10px] opacity-60 font-mono hidden sm:inline">
+              Verified: {new Date(activeTicket.settledAt).toLocaleTimeString()}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Selections Table */}
       <div className="space-y-3">
@@ -408,10 +502,30 @@ export const TicketEditor: React.FC = () => {
                       {sel.competition}
                     </span>
                   )}
+                  {sel.status && (
+                    <span
+                      className={`text-[10px] font-black px-2 py-0.5 rounded border uppercase tracking-wider ${
+                        sel.status === 'WON'
+                          ? 'bg-emerald-950 text-emerald-400 border-emerald-800'
+                          : sel.status === 'LOST'
+                          ? 'bg-rose-950 text-rose-400 border-rose-800'
+                          : sel.status === 'VOID'
+                          ? 'bg-amber-950 text-amber-400 border-amber-800'
+                          : 'bg-slate-800 text-slate-400 border-slate-700'
+                      }`}
+                    >
+                      {sel.status}
+                    </span>
+                  )}
+                  {sel.resultScore && (
+                    <span className="text-[10px] font-mono font-bold text-slate-200 bg-[#0B1020] px-2 py-0.5 rounded border border-[#1E2D4A]">
+                      FT: {sel.resultScore.home} - {sel.resultScore.away}
+                    </span>
+                  )}
                   <ConfidenceBadge confidence={sel.confidence} />
                 </div>
 
-                <div className="flex items-center gap-3 text-xs text-slate-400">
+                <div className="flex items-center gap-3 text-xs text-slate-400 flex-wrap">
                   <span className="text-blue-400 font-medium">{sel.selection}</span>
                   <span>•</span>
                   <span>{sel.market}</span>
@@ -419,6 +533,12 @@ export const TicketEditor: React.FC = () => {
                   <span className="font-mono text-slate-500">
                     Implied: {(100 / sel.odds).toFixed(1)}%
                   </span>
+                  {sel.resultDetails && (
+                    <>
+                      <span>•</span>
+                      <span className="text-[11px] text-slate-300 italic">{sel.resultDetails}</span>
+                    </>
+                  )}
                 </div>
 
                 {sel.uncertainFields && sel.uncertainFields.length > 0 && (

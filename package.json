@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "test": "tsx tests/optimizer.test.ts && tsx tests/firebase.test.ts && tsx tests/sportsProvider.test.ts"
+    "test": "tsx tests/optimizer.test.ts && tsx tests/firebase.test.ts && tsx tests/sportsProvider.test.ts && tsx tests/settlement.test.ts && tsx tests/e2eRealFixtures.test.ts && tsx tests/calibration.test.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

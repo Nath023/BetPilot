@@ -13,6 +13,7 @@ import { PredictionsView } from '../predictions/PredictionsView.tsx';
 import { ResearchPanel } from '../research/ResearchPanel.tsx';
 import { HistoryList } from '../history/HistoryList.tsx';
 import { SettingsView } from '../settings/SettingsView.tsx';
+import { CalibrationDashboard } from '../calibration/CalibrationDashboard.tsx';
 
 export const AppShell: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('chat');
@@ -44,6 +45,7 @@ export const AppShell: React.FC = () => {
             <ChatWindow onNavigateToWorkspace={() => setActiveTab('tickets')} />
           )}
           {activeTab === 'tickets' && <TicketEditor />}
+          {activeTab === 'calibration' && <CalibrationDashboard />}
           {activeTab === 'predictions' && (
             <PredictionsView
               onNavigateToRollover={() => setActiveTab('daily_rollover')}

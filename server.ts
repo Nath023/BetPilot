@@ -6,6 +6,10 @@ import { CopilotAgent } from './server/agents/copilotAgent.ts';
 import { ToolImplementations } from './server/tools/implementations.ts';
 import { BookmakerRegistry } from './server/providers/bookmakerRegistry.ts';
 import { SportsDataProvider } from './server/providers/sportsProvider.ts';
+import { SettlementEngine } from './server/settlement/settlementEngine.ts';
+import { RolloverSettler } from './server/settlement/rolloverSettler.ts';
+import { ResultProvider } from './server/settlement/resultProvider.ts';
+import { CalibrationEngine } from './server/calibration/calibrationEngine.ts';
 import { DEMO_TICKETS, DEMO_ROLLOVER } from './shared/constants/demoData.ts';
 
 dotenv.config();
@@ -168,6 +172,86 @@ async function startServer() {
 
   app.get('/api/prediction/history', (_req: Request, res: Response) => {
     res.json(ToolImplementations.getPredictionHistory());
+  });
+
+  // --- Automated Bet Settlement & Verification Endpoints ---
+  app.post('/api/settlement/ticket', async (req: Request, res: Response) => {
+    try {
+      const { ticket, customResults } = req.body;
+      if (!ticket) return res.status(400).json({ success: false, error: 'Ticket required for settlement' });
+      const result = await SettlementEngine.settleTicket(ticket, customResults);
+      res.json({ success: true, ...result });
+    } catch (err: any) {
+      console.error('API /api/settlement/ticket error:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.post('/api/settlement/batch', async (req: Request, res: Response) => {
+    try {
+      const { tickets, customResults } = req.body;
+      if (!Array.isArray(tickets)) return res.status(400).json({ success: false, error: 'Tickets array required' });
+      const results = await SettlementEngine.settleTickets(tickets, customResults);
+      res.json({ success: true, results });
+    } catch (err: any) {
+      console.error('API /api/settlement/batch error:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.post('/api/settlement/rollover', async (req: Request, res: Response) => {
+    try {
+      const { challenge, ticket, dayNumber, customResults } = req.body;
+      if (!challenge || !ticket) {
+        return res.status(400).json({ success: false, error: 'Challenge and ticket required' });
+      }
+      const result = await RolloverSettler.settleRolloverDay(challenge, ticket, dayNumber, customResults);
+      res.json({ success: true, ...result });
+    } catch (err: any) {
+      console.error('API /api/settlement/rollover error:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.get('/api/settlement/results', async (_req: Request, res: Response) => {
+    try {
+      const results = await ResultProvider.getAllResults();
+      res.json({ success: true, results });
+    } catch (err: any) {
+      console.error('API /api/settlement/results error:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // --- Model Accuracy & ROI Calibration Endpoints ---
+  app.post('/api/calibration/compute', (req: Request, res: Response) => {
+    try {
+      const { tickets = [], snapshots = [], filter = {} } = req.body;
+      const dashboardData = CalibrationEngine.computeDashboard(tickets, snapshots, filter);
+      res.json({ success: true, ...dashboardData });
+    } catch (err: any) {
+      console.error('API /api/calibration/compute error:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.get('/api/calibration/metrics', (req: Request, res: Response) => {
+    try {
+      const dateRange = (req.query.dateRange as any) || 'all';
+      const sport = (req.query.sport as any) || 'all';
+      const market = (req.query.market as any) || 'all';
+
+      // Settle demo tickets against benchmark results for baseline metrics
+      const dashboardData = CalibrationEngine.computeDashboard(
+        DEMO_TICKETS,
+        ToolImplementations.getPredictionHistory().snapshots,
+        { dateRange, sport, market }
+      );
+      res.json({ success: true, ...dashboardData });
+    } catch (err: any) {
+      console.error('API /api/calibration/metrics error:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
   });
 
   // Sports fixtures and status
